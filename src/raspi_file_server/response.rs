@@ -24,6 +24,7 @@ pub struct Response {
     status: StatusCode,
 }
 
+#[allow(dead_code)]
 impl Response {
     pub fn json<S>(mut self, json: S) -> Self
     where

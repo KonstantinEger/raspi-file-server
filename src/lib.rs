@@ -7,7 +7,7 @@ use raspi_file_server::{request::Request, response::Response};
 
 
 pub fn handle_request(stream: TcpStream) -> Result<(), Box<dyn Error>> {
-    let _request = Request::from(&stream);
+    let _request = Request::try_from(&stream)?;
     let response = Response::from(stream)
         .html("<h1>Hello World</h1>");
 
