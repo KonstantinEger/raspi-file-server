@@ -21,6 +21,7 @@ pub struct Response {
     stream: TcpStream,
     body: String,
     headers: Vec<(HeaderName, String)>,
+    status: StatusCode,
 }
 
 impl Response {
@@ -50,9 +51,19 @@ impl Response {
         self
     }
 
+    pub fn set_status(mut self, code: StatusCode) -> Self {
+        self.status = code;
+        self
+    }
+
     pub fn send(mut self) -> Result<(), Box<dyn Error>> {
         let temp = format!(
-            "HTTP/1.1 200 OK\n{}\nContent-Length: {}\n\n{}",
+            "HTTP/1.1 {}\n{}\nContent-Length: {}\n\n{}",
+            format!(
+                "{} {:?}",
+                <StatusCode as Into<usize>>::into(self.status),
+                self.status
+            ),
             self.headers_to_string(),
             self.body.len(),
             self.body
@@ -77,6 +88,55 @@ impl From<TcpStream> for Response {
             stream: s,
             body: String::new(),
             headers: Vec::new(),
+            status: StatusCode::OK,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum StatusCode {
+    OK,                  // 200
+    Created,             // 201
+    Accepted,            // 202
+    BadRequest,          // 400
+    Unauthorized,        // 401
+    Forbidden,           // 403
+    NotFound,            // 404
+    InternalServerError, // 500
+    NotImplemented,      // 501
+}
+
+impl From<usize> for StatusCode {
+    fn from(code: usize) -> StatusCode {
+        use StatusCode::*;
+        match code {
+            200 => OK,
+            201 => Created,
+            202 => Accepted,
+            400 => BadRequest,
+            401 => Unauthorized,
+            403 => Forbidden,
+            404 => NotFound,
+            500 => InternalServerError,
+            501 => NotImplemented,
+            _ => panic!("unknown status code")
+        }
+    }
+}
+
+impl From<StatusCode> for usize {
+    fn from(code: StatusCode) -> Self {
+        use StatusCode::*;
+        match code {
+            OK => 200,
+            Created => 201,
+            Accepted => 202,
+            BadRequest => 400,
+            Unauthorized => 401,
+            Forbidden => 403,
+            NotFound => 404,
+            InternalServerError => 500,
+            NotImplemented => 501
         }
     }
 }
