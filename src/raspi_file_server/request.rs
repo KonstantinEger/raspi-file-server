@@ -6,6 +6,7 @@ pub struct Request {
     raw_content: String,
     path: String,
     method: String,
+    params: Vec<(String, Option<String>)>,
 }
 
 #[allow(dead_code)]
@@ -20,6 +21,10 @@ impl Request {
 
     pub fn method(&self) -> &String {
         &self.method
+    }
+
+    pub fn params(&self) -> &Vec<(String, Option<String>)> {
+        &self.params
     }
 }
 
@@ -42,10 +47,22 @@ impl TryFrom<&TcpStream> for Request {
             Some(())
         }).ok_or(RequestParseError)?;
 
+        let params: Vec<(String, Option<String>)> = path
+            .split(|c| c == '?' || c == '&')
+            .skip(1)
+            .map(|s| {
+                let mut key_val = s.split('=').map(ToString::to_string);
+                (key_val.next(), key_val.next())
+            })
+            .filter(|(key, _)| key.is_some())
+            .map(|(key, val)| (key.unwrap(), val))
+            .collect();
+
         Ok(Request {
             raw_content,
             path,
-            method
+            method,
+            params,
         })
     }
 }
