@@ -5,7 +5,7 @@ use std::fmt::Display;
 pub struct Request {
     raw_content: String,
     path: String,
-    method: String,
+    method: HttpMethod,
     params: Vec<(String, Option<String>)>,
 }
 
@@ -19,7 +19,7 @@ impl Request {
         &self.path
     }
 
-    pub fn method(&self) -> &String {
+    pub fn method(&self) -> &HttpMethod {
         &self.method
     }
 
@@ -35,16 +35,12 @@ impl TryFrom<&TcpStream> for Request {
         stream.peek(&mut *buffer)?;
         let raw_content = String::from_utf8_lossy(&*buffer).to_string();
 
-        let mut method = String::new();
-        let mut path = String::new();
-
         let mut words = raw_content.split(" ");
-        words.next().and_then(|m| {
-            method = m.to_owned();
-            words.next()
-        }).and_then(|p| {
-            path = p.to_owned();
-            Some(())
+        let (method, path) = words.next().and_then(|m| {
+            let m: Result<_, _> = m.try_into();
+            Option::zip(m.ok(), words.next())
+        }).and_then(|(m, p)| {
+            Some((m, p.to_string()))
         }).ok_or(RequestParseError)?;
 
         let params: Vec<(String, Option<String>)> = path
@@ -67,6 +63,46 @@ impl TryFrom<&TcpStream> for Request {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum HttpMethod {
+    GET,
+    POST,
+    PUT,
+    UPDATE,
+    DELETE,
+    PATCH
+}
+
+impl TryFrom<&str> for HttpMethod {
+    type Error = RequestParseError;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        match &s.to_ascii_uppercase()[..] {
+            "GET" => Ok(HttpMethod::GET),
+            "POST" => Ok(HttpMethod::POST),
+            "PUT" => Ok(HttpMethod::PUT),
+            "UPDATE" => Ok(HttpMethod::UPDATE),
+            "DELETE" => Ok(HttpMethod::DELETE),
+            "PATCH" => Ok(HttpMethod::PATCH),
+            _ => Err(RequestParseError)
+        }
+    }
+}
+
+impl std::cmp::PartialEq<&str> for HttpMethod {
+    fn eq(&self, other: &&str) -> bool {
+        match (self, &other.to_ascii_uppercase()[..]) {
+            (HttpMethod::GET, "GET") |
+            (HttpMethod::POST, "POST") |
+            (HttpMethod::PUT, "PUT") |
+            (HttpMethod::UPDATE, "UPDATE") |
+            (HttpMethod::DELETE, "DELETE") |
+            (HttpMethod::PATCH, "PATCH") => true, 
+            _ => false
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct RequestParseError;
 
@@ -77,3 +113,23 @@ impl Display for RequestParseError {
 }
 
 impl Error for RequestParseError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    pub fn test_http_method_part_eq_with_str() {
+        assert_eq!(HttpMethod::GET, "GET");
+        assert_eq!(HttpMethod::PUT, "put");
+        assert_ne!(HttpMethod::PATCH, "GET");
+    }
+
+    #[test]
+    pub fn test_http_method_from_str() {
+        assert!(<&str as TryInto<HttpMethod>>::try_into("GET").is_ok());
+        assert!(<&str as TryInto<HttpMethod>>::try_into("dElEtE").is_ok());
+        assert!(<&str as TryInto<HttpMethod>>::try_into("asdf").is_err());
+        assert_eq!(<&str as TryInto<HttpMethod>>::try_into("PATCH").unwrap(), HttpMethod::PATCH);
+    }
+}
