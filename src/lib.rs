@@ -1,4 +1,8 @@
+mod response;
+
 use std::net::{TcpListener, TcpStream, ToSocketAddrs};
+use std::io::prelude::*;
+pub use response::{Response, HttpHeaderName, HttpStatusCode};
 
 #[derive(Default)]
 pub struct Server {
@@ -52,13 +56,19 @@ impl Server {
     pub fn bind_and_run<A: ToSocketAddrs>(&mut self, address: A) -> std::io::Result<()> {
         let listener = TcpListener::bind(address)?;
         for stream in listener.incoming() {
-            self.handle_request(stream?);
+            self.handle_request(stream?)?;
         }
         Ok(())
     }
 
-    fn handle_request(&self, _stream: TcpStream) {
-        todo!();
+    fn handle_request(&self, mut stream: TcpStream) -> std::io::Result<()> {
+        // TODO: correct implementation with matching the request to different routes
+        // this is just a temporary workaround for testing
+        if let Some((_,_,handler)) = self.routes.get(0) {
+            let response = (**handler)(Request);
+            stream.write(response.into_http_response_string().as_bytes())?;
+        }
+        Ok(())
     }
 }
 
@@ -71,15 +81,6 @@ pub enum HttpMethod {
 }
 
 pub struct Request;
-
-#[derive(Default)]
-pub struct Response;
-
-impl From<&str> for Response {
-    fn from(_: &str) -> Self {
-        Response
-    }
-}
 
 #[cfg(test)]
 mod tests {
