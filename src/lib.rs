@@ -1,12 +1,15 @@
+mod request;
 mod response;
 
 use std::net::{TcpListener, TcpStream, ToSocketAddrs};
 use std::io::prelude::*;
 pub use response::{Response, HttpHeaderName, HttpStatusCode};
+use response::response_into_http_response_string;
+pub use request::{Request, HttpMethod};
 
 #[derive(Default)]
 pub struct Server {
-    routes: Vec<(HttpMethod, String, Box<dyn Fn(Request) -> Response>)>
+    routes: Vec<(HttpMethod, String, Box<dyn Fn(&Request) -> Response>)>
 }
 
 impl Server {
@@ -26,7 +29,7 @@ impl Server {
         Self::default()
     }
 
-    /// Adds an endpoint to the server. A handler takes a request and returns a
+    /// Adds an endpoint to the server. A handler takes a [Request] and returns a
     /// [Response]. Response implements [From<&str>], which makes it easy to send
     /// text back to the client.
     /// ```
@@ -39,13 +42,13 @@ impl Server {
     ///     Ok(())
     /// }
     ///
-    /// fn index_route(_: Request) -> Response {
+    /// fn index_route(_: &Request) -> Response {
     ///     "<h1>Index page</h1>".into()
     /// }
     /// ```
     pub fn add_route<F>(&mut self, method: HttpMethod, path: &str, handler: F) -> &mut Self
     where
-        F: Fn(Request) -> Response + 'static
+        F: Fn(&Request) -> Response + 'static
     {
         self.routes.push((method, path.to_string(), Box::new(handler)));
         self
@@ -62,25 +65,27 @@ impl Server {
     }
 
     fn handle_request(&self, mut stream: TcpStream) -> std::io::Result<()> {
-        // TODO: correct implementation with matching the request to different routes
-        // this is just a temporary workaround for testing
+        let request = {
+            let mut buffer = [0;5120];
+            stream.read(&mut buffer)?;
+            let content = String::from_utf8_lossy(&buffer).to_string();
+            let request_result = request::parse_request_from_http_request_body(content);
+            if request_result.is_err() {
+                let err = request_result.unwrap_err();
+                stream.write(response_into_http_response_string(err.into()).as_bytes())?;
+                return Ok(());
+            }
+            request_result.unwrap()
+        };
+
+        // TODO: correct implementation for matching the request to the route
         if let Some((_,_,handler)) = self.routes.get(0) {
-            let response = (**handler)(Request);
-            stream.write(response.into_http_response_string().as_bytes())?;
+            let response = (**handler)(&request);
+            stream.write(response_into_http_response_string(response).as_bytes())?;
         }
         Ok(())
     }
 }
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum HttpMethod {
-    GET,
-    PUT,
-    PATCH,
-    DELETE
-}
-
-pub struct Request;
 
 #[cfg(test)]
 mod tests {

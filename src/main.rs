@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn index(_: Request) -> Response {
+fn index(_: &Request) -> Response {
     let mut response = Response::default();
     response.set_json("{\"msg\":\"hello world\"}");
     response

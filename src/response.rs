@@ -86,23 +86,6 @@ impl Response {
         self.body = html.to_string();
     }
 
-    /// Converts a Response to a String which can be written to the response
-    /// [TcpStream](std::net::TcpStream). This method is used by the library and
-    /// is of no use for outside users.
-    pub fn into_http_response_string(self) -> String {
-        format!(
-            "HTTP/1.1 {}\n{}\ncontent-length: {}\n\n{}",
-            format!(
-                "{} {:?}",
-                <HttpStatusCode as Into<usize>>::into(self.status_code),
-                self.status_code
-            ),
-            self.headers_to_string(),
-            self.body.len(),
-            self.body
-        )
-    }
-
     fn headers_to_string(&self) -> String {
         self.headers.iter()
             .map(|(hn, value)| {
@@ -112,11 +95,33 @@ impl Response {
     }
 }
 
+/// Converts a Response to a String which can be written to the response
+/// [TcpStream](std::net::TcpStream).
+pub fn response_into_http_response_string(response: Response) -> String {
+    format!(
+        "HTTP/1.1 {}\n{}\ncontent-length: {}\n\n{}",
+        format!(
+            "{} {:?}",
+            <HttpStatusCode as Into<usize>>::into(response.status_code),
+            response.status_code
+        ),
+        response.headers_to_string(),
+        response.body.len(),
+        response.body
+    )
+}
+
 impl From<&str> for Response {
     fn from(s: &str) -> Self {
         let mut r = Response::default();
         r.set_html(s);
         r
+    }
+}
+
+impl From<String> for Response {
+    fn from(s: String) -> Self {
+        <Response as From<&str>>::from(&s)
     }
 }
 
@@ -178,7 +183,7 @@ mod tests {
         let mut response = Response::default();
         response.set_html("test");
         let should_be = "HTTP/1.1 200 OK\ncontent-type: text/html\ncontent-length: 4\n\ntest";
-        assert_eq!(response.into_http_response_string(), should_be);
+        assert_eq!(response_into_http_response_string(response), should_be);
     }
 
     #[test]
