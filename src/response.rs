@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 /// A (non-exhaustive) list of HTTP status codes according to [MDN](https://developer.mozilla.org/de/docs/Web/HTTP/Status)
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum HttpStatusCode {
     OK,                  // 200
     BadRequest,          // 400
@@ -117,5 +117,75 @@ impl From<&str> for Response {
         let mut r = Response::default();
         r.set_html(s);
         r
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_response() {
+        let response = Response::default();
+        assert_eq!(response.status_code, HttpStatusCode::OK);
+        assert_eq!(response.body, "");
+        assert_eq!(response.headers.len(), 0);
+    }
+
+    #[test]
+    fn test_set_status_code() {
+        let mut response = Response::default();
+        response.set_status_code(HttpStatusCode::OK);
+        assert_eq!(response.status_code, HttpStatusCode::OK);
+        response.set_status_code(HttpStatusCode::BadRequest);
+        assert_eq!(response.status_code, HttpStatusCode::BadRequest);
+    }
+
+    #[test]
+    fn test_set_header() {
+        let mut response = Response::default();
+        assert_eq!(response.headers.len(), 0);
+        response.set_header(HttpHeaderName::ContentType, "test1");
+        assert_eq!(response.headers.len(), 1);
+        response.set_header(HttpHeaderName::ContentType, "test2");
+        assert_eq!(response.headers.len(), 1);
+        assert_eq!(response.headers.get(&HttpHeaderName::ContentType).unwrap(), "test2");
+    }
+
+    #[test]
+    fn test_set_body() {
+        let mut response = Response::default();
+        response.set_body("body");
+        assert_eq!(response.body, "body");
+        assert_eq!(response.headers.len(), 0);
+    }
+
+    #[test]
+    fn test_set_json_and_html() {
+        let mut response = Response::default();
+        response.set_json("json");
+        assert_eq!(response.body, "json");
+        assert_eq!(response.headers.len(), 1);
+        assert_eq!(response.headers.get(&HttpHeaderName::ContentType).unwrap(), "application/json");
+        response.set_html("html");
+        assert_eq!(response.body, "html");
+        assert_eq!(response.headers.len(), 1);
+        assert_eq!(response.headers.get(&HttpHeaderName::ContentType).unwrap(), "text/html");
+    }
+
+    #[test]
+    fn test_into_http_response_string() {
+        let mut response = Response::default();
+        response.set_html("test");
+        let should_be = "HTTP/1.1 200 OK\ncontent-type: text/html\ncontent-length: 4\n\ntest";
+        assert_eq!(response.into_http_response_string(), should_be);
+    }
+
+    #[test]
+    fn test_response_from_str() {
+        let response: Response = "test".into();
+        assert_eq!(response.body, "test");
+        assert_eq!(response.headers.get(&HttpHeaderName::ContentType).unwrap(), "text/html");
+        assert_eq!(response.status_code, HttpStatusCode::OK);
     }
 }
