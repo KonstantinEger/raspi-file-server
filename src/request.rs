@@ -127,34 +127,67 @@ impl Request {
     }
 }
 
-pub fn parse_request_from_http_request_body(content: String) -> Result<Request, RequestParseError> {
-    let (method, path) = {
-        let mut words = content.split(' ');
-        words.next().ok_or(RequestParseError)
-            .and_then(HttpMethod::try_from)
-            .map(|m| (m, words.next().ok_or(RequestParseError)))
-            .and_then(|(m, pr)| Ok((m, pr?)))
-            .map(|(m, p)| (m, p.to_string()))?
-    };
+pub mod utils {
+    use super::*;
 
-    let queries = path
-        .split(|c| c == '?' || c == '&')
-        .skip(1)
-        .map(|keyval| {
-            let mut keyval = keyval.split('=').map(ToString::to_string);
-            (keyval.next(), keyval.next())
+    pub fn parse_request_from_http_request_body(content: String) -> Result<Request, RequestParseError> {
+        let (method, path) = {
+            let mut words = content.split(' ');
+            words.next().ok_or(RequestParseError)
+                .and_then(HttpMethod::try_from)
+                .map(|m| (m, words.next().ok_or(RequestParseError)))
+                .and_then(|(m, pr)| Ok((m, pr?)))
+                .map(|(m, p)| (m, p.to_string()))?
+        };
+
+        let queries = path
+            .split(|c| c == '?' || c == '&')
+            .skip(1)
+            .map(|keyval| {
+                let mut keyval = keyval.split('=').map(ToString::to_string);
+                (keyval.next(), keyval.next())
+            })
+            .filter(|(key, _)| key.is_some())
+            .map(|(key, val)| (key.unwrap(), val))
+            .collect();
+
+        Ok(Request {
+            raw_content: content,
+            path,
+            method,
+            queries,
         })
-        .filter(|(key, _)| key.is_some())
-        .map(|(key, val)| (key.unwrap(), val))
-        .collect();
+    }
 
-    Ok(Request {
-        raw_content: content,
-        path,
-        method,
-        queries,
-    })
+    pub fn request_matches_route(request: &Request, route: &str) -> bool {
+        if request.path_as_str() == route { return true; }
+
+        let mut req_subpaths = request.path_as_str()
+            .split('/')
+            .filter(|s| s.len() != 0)
+            .filter_map(|s| s.split('?').next());
+        let mut route_subpaths = route.split('/').filter(|s| s.len() != 0);
+
+        loop {
+            match (req_subpaths.next(), route_subpaths.next()) {
+                (None, None) => break,
+                (Some(_), None) | (None, Some(_)) => return false,
+                (Some(re), Some(ro)) => {
+                    if ro.starts_with('{') { continue; }
+                    if re != ro { return false; }
+                }
+            }
+        }
+
+        true
+    }
+
+    pub fn set_request_params_according_to_match(request: &mut Request, route: &str) {
+        todo!()
+    }
 }
+
+
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RequestParseError;
@@ -180,20 +213,40 @@ impl std::error::Error for RequestParseError {}
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_parsing_request() {
-        let request_str = r"GET /path?query2&query1=val HTTP/1.1
+    fn create_mock_request(method: HttpMethod, path: &str) -> (Request, String) {
+        let string = format!(r"{:?} {} HTTP/1.1
 User-Agent: Mozilla/4.0 (compatible; MSIE5.01; Windows NT)
 Host: www.loremipsum.com
 Accept-Language: en-us
 Accept-Encoding: gzip, deflate
-Connection: Keep-Alive".to_string();
+Connection: Keep-Alive", method, path);
+        (utils::parse_request_from_http_request_body(string.clone()).unwrap(), string)
+    }
 
-        let request = parse_request_from_http_request_body(request_str.clone()).unwrap();
+    #[test]
+    fn test_parsing_request() {
+        let (request, request_str) = create_mock_request(HttpMethod::GET, "/path?query2&query1=val");
         assert_eq!(request.raw_content, request_str);
         assert_eq!(request.method, HttpMethod::GET);
         assert_eq!(request.queries.len(), 2);
         assert_eq!(*request.queries.get("query1").unwrap(), Some("val".to_string()));
         assert_eq!(*request.queries.get("query2").unwrap(), None);
+    }
+
+    #[test]
+    fn test_request_matches() {
+        let (request, _) = create_mock_request(HttpMethod::GET, "/test/path");
+        assert_eq!(utils::request_matches_route(&request, "/test/path"), true);
+        assert_eq!(utils::request_matches_route(&request, "/test/path/"), true);
+        assert_eq!(utils::request_matches_route(&request, "/asdf"), false);
+
+        let (request, _) = create_mock_request(HttpMethod::GET, "/test/path?some_param=value");
+        assert_eq!(utils::request_matches_route(&request, "/test/path"), true);
+
+        let (request, _) = create_mock_request(HttpMethod::GET, "/greet/john");
+        assert_eq!(utils::request_matches_route(&request, "/greet/{name}/"), true);
+        assert_eq!(utils::request_matches_route(&request, "/greet"), false);
+        assert_eq!(utils::request_matches_route(&request, "/asdf"), false);
+        
     }
 }

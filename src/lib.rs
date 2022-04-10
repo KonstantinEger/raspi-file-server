@@ -65,11 +65,11 @@ impl Server {
     }
 
     fn handle_request(&self, mut stream: TcpStream) -> std::io::Result<()> {
-        let request = {
+        let mut request = {
             let mut buffer = [0;5120];
             stream.read(&mut buffer)?;
             let content = String::from_utf8_lossy(&buffer).to_string();
-            let request_result = request::parse_request_from_http_request_body(content);
+            let request_result = request::utils::parse_request_from_http_request_body(content);
             if request_result.is_err() {
                 let err = request_result.unwrap_err();
                 stream.write(response_into_http_response_string(err.into()).as_bytes())?;
@@ -78,9 +78,12 @@ impl Server {
             request_result.unwrap()
         };
 
-        // TODO: correct implementation for matching the request to the route
-        if let Some((_,_,handler)) = self.routes.get(0) {
-            let response = (**handler)(&request);
+        if let Some((_, route, handler)) = self.routes
+            .iter()
+            .find(|(method, route, _)| (*method == request.method()) && request::utils::request_matches_route(&request, route))
+        {
+            request::utils::set_request_params_according_to_match(&mut request, route);
+            let response = handler(&request);
             stream.write(response_into_http_response_string(response).as_bytes())?;
         }
         Ok(())
