@@ -234,16 +234,16 @@ Connection: Keep-Alive", method, path);
     #[test]
     fn test_request_matches() {
         let (request, _) = create_mock_request(HttpMethod::GET, "/test/path");
-        assert_eq!(utils::request_matches_route(&request, "/test/path"), true);
-        assert_eq!(utils::request_matches_route(&request, "/test/path/"), true);
-        assert_eq!(utils::request_matches_route(&request, "/some-other-path"), false);
+        assert!(utils::request_matches_route(&request, "/test/path"));
+        assert!(utils::request_matches_route(&request, "/test/path/"));
+        assert!(!utils::request_matches_route(&request, "/some-other-path"));
 
         let (request, _) = create_mock_request(HttpMethod::GET, "/test/path?some_param=value");
-        assert_eq!(utils::request_matches_route(&request, "/test/path"), true);
+        assert!(utils::request_matches_route(&request, "/test/path"));
 
         let (request, _) = create_mock_request(HttpMethod::GET, "/greet/john");
-        assert_eq!(utils::request_matches_route(&request, "/greet/{name}/"), true);
-        assert_eq!(utils::request_matches_route(&request, "/greet"), false);
-        assert_eq!(utils::request_matches_route(&request, "/some-other-path"), false);
+        assert!(utils::request_matches_route(&request, "/greet/{name}/"));
+        assert!(!utils::request_matches_route(&request, "/greet"));
+        assert!(!utils::request_matches_route(&request, "/some-other-path"));
     }
 }
