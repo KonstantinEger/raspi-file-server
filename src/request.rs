@@ -9,7 +9,7 @@ pub enum HttpMethod {
     GET,
     PUT,
     PATCH,
-    DELETE
+    DELETE,
 }
 
 impl TryFrom<&str> for HttpMethod {
@@ -72,7 +72,7 @@ impl Request {
     ///     Ok(())
     /// }
     ///
-    /// // matches requests like /greet?name=johndoe&otherQuery
+    /// // matches requests like /greet?name=johnDoe&otherQuery
     /// fn greet_route(req: &Request) -> Response {
     ///     if let Some(Some(name)) = req.queries().get("name") {
     ///         if req.queries().get("otherQuery").is_some() {
@@ -87,9 +87,9 @@ impl Request {
     ///     }
     /// }
     /// ```
-    /// A request to `/greet?name=johndoe` would return the response
-    /// `Hello johndoe, nice to meet you!`, while a request to `/greet/name=johndoe?otherQuery`
-    /// would yield `Hello johndoe, I see you set the other query parameter ;)`. A request
+    /// A request to `/greet?name=johnDoe` would return the response
+    /// `Hello johnDoe, nice to meet you!`, while a request to `/greet/name=johnDoe?otherQuery`
+    /// would yield `Hello johnDoe, I see you set the other query parameter ;)`. A request
     /// where `name=...` is not present or hasn't set a value, the `BadRequest` response
     /// is sent.
     pub fn queries(&self) -> &HashMap<String, Option<String>> {
@@ -100,8 +100,8 @@ impl Request {
     ///
     /// Parameters are encoded as elements of the path of the request, e.g.
     /// the [route](crate::Server::add_route) `/greet/{name}` activated by a
-    /// request to `/greet/johndoe` would get passed a Request object where
-    /// `request.params().get("name")` yields a Some("johndoe") value.
+    /// request to `/greet/johnDoe` would get passed a Request object where
+    /// `request.params().get("name")` yields a Some("johnDoe") value.
     /// ```
     /// use raspi_file_server::*;
     ///
@@ -143,9 +143,9 @@ pub mod utils {
         let queries = path
             .split(|c| c == '?' || c == '&')
             .skip(1)
-            .map(|keyval| {
-                let mut keyval = keyval.split('=').map(ToString::to_string);
-                (keyval.next(), keyval.next())
+            .map(|key_val| {
+                let mut key_val = key_val.split('=').map(ToString::to_string);
+                (key_val.next(), key_val.next())
             })
             .filter(|(key, _)| key.is_some())
             .map(|(key, val)| (key.unwrap(), val))
@@ -162,14 +162,14 @@ pub mod utils {
     pub fn request_matches_route(request: &Request, route: &str) -> bool {
         if request.path_as_str() == route { return true; }
 
-        let mut req_subpaths = request.path_as_str()
+        let mut req_sub_paths = request.path_as_str()
             .split('/')
-            .filter(|s| s.len() != 0)
+            .filter(|s| !s.is_empty())
             .filter_map(|s| s.split('?').next());
-        let mut route_subpaths = route.split('/').filter(|s| s.len() != 0);
+        let mut route_sub_paths = route.split('/').filter(|s| !s.is_empty());
 
         loop {
-            match (req_subpaths.next(), route_subpaths.next()) {
+            match (req_sub_paths.next(), route_sub_paths.next()) {
                 (None, None) => break,
                 (Some(_), None) | (None, Some(_)) => return false,
                 (Some(re), Some(ro)) => {
@@ -182,18 +182,16 @@ pub mod utils {
         true
     }
 
-    pub fn set_request_params_according_to_match(request: &mut Request, route: &str) {
+    pub fn set_request_params_according_to_match(_request: &mut Request, _route: &str) {
         todo!()
     }
 }
 
-
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RequestParseError;
 
-impl Into<Response> for RequestParseError {
-    fn into(self) -> Response {
+impl From<RequestParseError> for Response {
+    fn from(_: RequestParseError) -> Self {
         let mut resp = Response::default();
         resp.set_html("RequestParseError");
         resp.set_status_code(HttpStatusCode::BadRequest);
@@ -238,7 +236,7 @@ Connection: Keep-Alive", method, path);
         let (request, _) = create_mock_request(HttpMethod::GET, "/test/path");
         assert_eq!(utils::request_matches_route(&request, "/test/path"), true);
         assert_eq!(utils::request_matches_route(&request, "/test/path/"), true);
-        assert_eq!(utils::request_matches_route(&request, "/asdf"), false);
+        assert_eq!(utils::request_matches_route(&request, "/some-other-path"), false);
 
         let (request, _) = create_mock_request(HttpMethod::GET, "/test/path?some_param=value");
         assert_eq!(utils::request_matches_route(&request, "/test/path"), true);
@@ -246,7 +244,6 @@ Connection: Keep-Alive", method, path);
         let (request, _) = create_mock_request(HttpMethod::GET, "/greet/john");
         assert_eq!(utils::request_matches_route(&request, "/greet/{name}/"), true);
         assert_eq!(utils::request_matches_route(&request, "/greet"), false);
-        assert_eq!(utils::request_matches_route(&request, "/asdf"), false);
-        
+        assert_eq!(utils::request_matches_route(&request, "/some-other-path"), false);
     }
 }

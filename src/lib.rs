@@ -7,9 +7,11 @@ pub use response::{Response, HttpHeaderName, HttpStatusCode};
 use response::response_into_http_response_string;
 pub use request::{Request, HttpMethod};
 
+type Routes = Vec<(HttpMethod, String, Box<dyn Fn(&Request) -> Response>)>;
+
 #[derive(Default)]
 pub struct Server {
-    routes: Vec<(HttpMethod, String, Box<dyn Fn(&Request) -> Response>)>
+    routes: Routes
 }
 
 impl Server {
@@ -67,12 +69,11 @@ impl Server {
     fn handle_request(&self, mut stream: TcpStream) -> std::io::Result<()> {
         let mut request = {
             let mut buffer = [0;5120];
-            stream.read(&mut buffer)?;
+            stream.read_exact(&mut buffer)?;
             let content = String::from_utf8_lossy(&buffer).to_string();
             let request_result = request::utils::parse_request_from_http_request_body(content);
-            if request_result.is_err() {
-                let err = request_result.unwrap_err();
-                stream.write(response_into_http_response_string(err.into()).as_bytes())?;
+            if let Err(err) = request_result {
+                stream.write_all(response_into_http_response_string(err.into()).as_bytes())?;
                 return Ok(());
             }
             request_result.unwrap()
@@ -84,7 +85,7 @@ impl Server {
         {
             request::utils::set_request_params_according_to_match(&mut request, route);
             let response = handler(&request);
-            stream.write(response_into_http_response_string(response).as_bytes())?;
+            stream.write_all(response_into_http_response_string(response).as_bytes())?;
         }
         Ok(())
     }

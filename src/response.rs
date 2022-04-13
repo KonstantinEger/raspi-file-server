@@ -99,12 +99,9 @@ impl Response {
 /// [TcpStream](std::net::TcpStream).
 pub fn response_into_http_response_string(response: Response) -> String {
     format!(
-        "HTTP/1.1 {}\n{}\ncontent-length: {}\n\n{}",
-        format!(
-            "{} {:?}",
-            <HttpStatusCode as Into<usize>>::into(response.status_code),
-            response.status_code
-        ),
+        "HTTP/1.1 {} {:?}\n{}\ncontent-length: {}\n\n{}",
+        <HttpStatusCode as Into<usize>>::into(response.status_code),
+        response.status_code,
         response.headers_to_string(),
         response.body.len(),
         response.body

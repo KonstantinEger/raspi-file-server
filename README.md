@@ -1,6 +1,16 @@
 # raspi-file-server
 A file server with web interface, written in Rust.
 
+## Documentation
+
+The TCP Server library is documented via doc comments. To view the docs install
+Rust via [rust-up](https://www.rust-lang.org/tools/install), which ships
+with cargo. Then run
+
+```bash
+$ cargo doc --open
+```
+
 ## API of the TCP server
 
 ```rust
