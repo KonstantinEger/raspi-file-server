@@ -1,5 +1,5 @@
-use std::error::Error;
 use raspi_file_server::*;
+use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
     Server::new()

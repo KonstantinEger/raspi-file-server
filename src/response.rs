@@ -29,13 +29,13 @@ impl Default for HttpStatusCode {
 /// A (non-exhaustive) list of HTTP headers.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum HttpHeaderName {
-    ContentType
+    ContentType,
 }
 
 impl From<HttpHeaderName> for &str {
     fn from(name: HttpHeaderName) -> Self {
         match name {
-            HttpHeaderName::ContentType => "content-type"
+            HttpHeaderName::ContentType => "content-type",
         }
     }
 }
@@ -62,8 +62,7 @@ impl Response {
     /// Sets a specific header.
     ///
     /// If a header with the same [HttpHeaderName] is already set, it will get overwritten.
-    pub fn set_header<S: ToString>(&mut self, header_name: HttpHeaderName, header_value: S)
-    {
+    pub fn set_header<S: ToString>(&mut self, header_name: HttpHeaderName, header_value: S) {
         self.headers.insert(header_name, header_value.to_string());
     }
 
@@ -87,10 +86,10 @@ impl Response {
     }
 
     fn headers_to_string(&self) -> String {
-        self.headers.iter()
-            .map(|(hn, value)| {
-                format!("{}: {}", <HttpHeaderName as Into<&str>>::into(*hn), value)
-            }).collect::<Vec<String>>()
+        self.headers
+            .iter()
+            .map(|(hn, value)| format!("{}: {}", <HttpHeaderName as Into<&str>>::into(*hn), value))
+            .collect::<Vec<String>>()
             .join("\n")
     }
 }
@@ -151,7 +150,10 @@ mod tests {
         assert_eq!(response.headers.len(), 1);
         response.set_header(HttpHeaderName::ContentType, "test2");
         assert_eq!(response.headers.len(), 1);
-        assert_eq!(response.headers.get(&HttpHeaderName::ContentType).unwrap(), "test2");
+        assert_eq!(
+            response.headers.get(&HttpHeaderName::ContentType).unwrap(),
+            "test2"
+        );
     }
 
     #[test]
@@ -168,11 +170,17 @@ mod tests {
         response.set_json("json");
         assert_eq!(response.body, "json");
         assert_eq!(response.headers.len(), 1);
-        assert_eq!(response.headers.get(&HttpHeaderName::ContentType).unwrap(), "application/json");
+        assert_eq!(
+            response.headers.get(&HttpHeaderName::ContentType).unwrap(),
+            "application/json"
+        );
         response.set_html("html");
         assert_eq!(response.body, "html");
         assert_eq!(response.headers.len(), 1);
-        assert_eq!(response.headers.get(&HttpHeaderName::ContentType).unwrap(), "text/html");
+        assert_eq!(
+            response.headers.get(&HttpHeaderName::ContentType).unwrap(),
+            "text/html"
+        );
     }
 
     #[test]
@@ -187,7 +195,10 @@ mod tests {
     fn test_response_from_str() {
         let response: Response = "test".into();
         assert_eq!(response.body, "test");
-        assert_eq!(response.headers.get(&HttpHeaderName::ContentType).unwrap(), "text/html");
+        assert_eq!(
+            response.headers.get(&HttpHeaderName::ContentType).unwrap(),
+            "text/html"
+        );
         assert_eq!(response.status_code, HttpStatusCode::OK);
     }
 }

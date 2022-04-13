@@ -1,17 +1,17 @@
 mod request;
 mod response;
 
-use std::net::{TcpListener, TcpStream, ToSocketAddrs};
-use std::io::prelude::*;
-pub use response::{Response, HttpHeaderName, HttpStatusCode};
+pub use request::{HttpMethod, Request};
 use response::response_into_http_response_string;
-pub use request::{Request, HttpMethod};
+pub use response::{HttpHeaderName, HttpStatusCode, Response};
+use std::io::prelude::*;
+use std::net::{TcpListener, TcpStream, ToSocketAddrs};
 
 type Routes = Vec<(HttpMethod, String, Box<dyn Fn(&Request) -> Response>)>;
 
 #[derive(Default)]
 pub struct Server {
-    routes: Routes
+    routes: Routes,
 }
 
 impl Server {
@@ -50,9 +50,10 @@ impl Server {
     /// ```
     pub fn add_route<F>(&mut self, method: HttpMethod, path: &str, handler: F) -> &mut Self
     where
-        F: Fn(&Request) -> Response + 'static
+        F: Fn(&Request) -> Response + 'static,
     {
-        self.routes.push((method, path.to_string(), Box::new(handler)));
+        self.routes
+            .push((method, path.to_string(), Box::new(handler)));
         self
     }
 
@@ -60,15 +61,15 @@ impl Server {
     /// in different formats, which implement [ToSocketAddrs].
     pub fn bind_and_run<A: ToSocketAddrs>(&mut self, address: A) -> std::io::Result<()> {
         let listener = TcpListener::bind(address)?;
-        for stream in listener.incoming() {
-            self.handle_request(stream?)?;
+        for stream in listener.incoming().filter_map(Result::ok) {
+            self.handle_request(stream)?;
         }
         Ok(())
     }
 
     fn handle_request(&self, mut stream: TcpStream) -> std::io::Result<()> {
         let mut request = {
-            let mut buffer = [0;5120];
+            let mut buffer = [0; 5120];
             stream.read_exact(&mut buffer)?;
             let content = String::from_utf8_lossy(&buffer).to_string();
             let request_result = request::utils::parse_request_from_http_request_body(content);
@@ -79,10 +80,9 @@ impl Server {
             request_result.unwrap()
         };
 
-        if let Some((_, route, handler)) = self.routes
-            .iter()
-            .find(|(method, route, _)| (*method == request.method()) && request::utils::request_matches_route(&request, route))
-        {
+        if let Some((_, route, handler)) = self.routes.iter().find(|(method, route, _)| {
+            (*method == request.method()) && request::utils::request_matches_route(&request, route)
+        }) {
             request::utils::set_request_params_according_to_match(&mut request, route);
             let response = handler(&request);
             stream.write_all(response_into_http_response_string(response).as_bytes())?;
