@@ -1,11 +1,15 @@
-use std::{net, error::Error};
+use std::error::Error;
+use raspi_file_server::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let listener = net::TcpListener::bind("127.0.0.1:8080")?;
-
-    for stream in listener.incoming() {
-        raspi_file_server::handle_request(stream?)?;
-    }
-
+    Server::new()
+        .add_route(HttpMethod::GET, "/", index)
+        .bind_and_run("127.0.0.1:8080")?;
     Ok(())
+}
+
+fn index(_: &Request) -> Response {
+    let mut response = Response::default();
+    response.set_json("{\"msg\":\"hello world\"}");
+    response
 }
