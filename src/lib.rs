@@ -70,7 +70,7 @@ impl Server {
     fn handle_request(&self, mut stream: TcpStream) -> std::io::Result<()> {
         let mut request = {
             let mut buffer = [0; 5120];
-            stream.read_exact(&mut buffer)?;
+            let _ = stream.read(&mut buffer)?;
             let content = String::from_utf8_lossy(&buffer).to_string();
             let request_result = request::utils::parse_request_from_http_request_body(content);
             if let Err(err) = request_result {

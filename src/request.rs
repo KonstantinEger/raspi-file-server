@@ -182,6 +182,9 @@ pub mod utils {
                 (None, None) => break,
                 (Some(_), None) | (None, Some(_)) => return false,
                 (Some(re), Some(ro)) => {
+                    if ro == "*" {
+                        return true;
+                    }
                     if ro.starts_with('{') {
                         continue;
                     }
@@ -277,14 +280,18 @@ Connection: Keep-Alive",
     #[test]
     fn test_request_matches() {
         let (request, _) = create_mock_request(HttpMethod::GET, "/test/path");
+        assert!(utils::request_matches_route(&request, "*"));
+        assert!(utils::request_matches_route(&request, "/test/*"));
         assert!(utils::request_matches_route(&request, "/test/path"));
         assert!(utils::request_matches_route(&request, "/test/path/"));
         assert!(!utils::request_matches_route(&request, "/some-other-path"));
 
         let (request, _) = create_mock_request(HttpMethod::GET, "/test/path?some_param=value");
+        assert!(utils::request_matches_route(&request, "*"));
         assert!(utils::request_matches_route(&request, "/test/path"));
 
         let (request, _) = create_mock_request(HttpMethod::GET, "/greet/john");
+        assert!(utils::request_matches_route(&request, "*"));
         assert!(utils::request_matches_route(&request, "/greet/{name}/"));
         assert!(!utils::request_matches_route(&request, "/greet"));
         assert!(!utils::request_matches_route(&request, "/some-other-path"));
