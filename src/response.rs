@@ -121,6 +121,19 @@ impl From<String> for Response {
     }
 }
 
+impl<T, E> From<Result<T, E>> for Response
+where
+    T: Into<Response>,
+    E: Into<Response>,
+{
+    fn from(r: Result<T, E>) -> Self {
+        match r {
+            Ok(t) => t.into(),
+            Err(e) => e.into(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

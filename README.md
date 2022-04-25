@@ -20,7 +20,7 @@ use std::error::Error;
 fn main() -> Result<(), Box<dyn Error>> {
     Server::new()
         .add_route(HttpMethod::GET, "/greet/{name}", greet)
-        .add_route(HttpMethod::GET, "/", index)
+        .add_route(HttpMethod::GET, "*", index)
         .bind_and_run("127.0.0.1:8080")?;
 }
 
@@ -28,11 +28,18 @@ fn greet(req: Request) -> Response {
     req.params()
         .get("name")
         .map(|n| format!("Hello {}!", name))
+        .ok_or(MyBadRequestError)
         .into()
 }
 
 fn index(_: Request) -> Response {
     "Lorem Ipsum".into()
+}
+
+struct MyBadRequestError;
+
+impl Into<Response> for MyBadRequestError {
+    // todo...
 }
 ```
 
